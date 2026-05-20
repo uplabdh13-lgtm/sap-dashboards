@@ -1,1 +1,59 @@
+name: Update SAP Inventory Dashboard
 
+on:
+  # ── Auto-run every day at 7:00 AM UAE time (03:00 UTC) ──
+  schedule:
+    - cron: '0 3 * * 1-5'   # Monday to Friday only
+
+  # ── Also run instantly when you upload new MB52/MB51 files ──
+  push:
+    paths:
+      - 'data/mb52_export.xlsx'
+      - 'data/mb51_export.xlsx'
+
+  # ── Manual trigger (run anytime with one click) ──
+  workflow_dispatch:
+
+jobs:
+  build-dashboard:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      # 1. Check out your repository
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 2. Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 3. Install required libraries
+      - name: Install Libraries
+        run: |
+          pip install pandas openpyxl matplotlib xlsxwriter
+
+      # 4. Copy data files to working directory
+      - name: Prepare Data Files
+        run: |
+          cp data/mb52_export.xlsx mb52_export.xlsx
+          cp data/mb51_export.xlsx mb51_export.xlsx
+
+      # 5. Run the Python script to generate dashboard
+      - name: Generate Dashboard
+        run: |
+          python inventory_ageing.py
+
+      # 6. Commit and push the new HTML + Excel back to repo
+      - name: Publish Dashboard
+        run: |
+          git config --global user.name  "Dashboard Bot"
+          git config --global user.email "dashboard@sap-reports.com"
+          git add inventory_ageing_dashboard.html
+          git add inventory_ageing_report.xlsx
+          git diff --staged --quiet || git commit -m "📊 Dashboard updated $(date +'%Y-%m-%d %H:%M UTC')"
+          git push
